@@ -1,0 +1,257 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+import estraces
+import pandas as pd
+import numpy as np
+from bokeh.plotting import figure, show
+from bokeh.io import output_notebook
+from bokeh.palettes import Spectral11
+from bokeh.layouts import gridplot
+from bokeh.resources import INLINE
+
+Sbox = (
+            0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
+            0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
+            0xB7, 0xFD, 0x93, 0x26, 0x36, 0x3F, 0xF7, 0xCC, 0x34, 0xA5, 0xE5, 0xF1, 0x71, 0xD8, 0x31, 0x15,
+            0x04, 0xC7, 0x23, 0xC3, 0x18, 0x96, 0x05, 0x9A, 0x07, 0x12, 0x80, 0xE2, 0xEB, 0x27, 0xB2, 0x75,
+            0x09, 0x83, 0x2C, 0x1A, 0x1B, 0x6E, 0x5A, 0xA0, 0x52, 0x3B, 0xD6, 0xB3, 0x29, 0xE3, 0x2F, 0x84,
+            0x53, 0xD1, 0x00, 0xED, 0x20, 0xFC, 0xB1, 0x5B, 0x6A, 0xCB, 0xBE, 0x39, 0x4A, 0x4C, 0x58, 0xCF,
+            0xD0, 0xEF, 0xAA, 0xFB, 0x43, 0x4D, 0x33, 0x85, 0x45, 0xF9, 0x02, 0x7F, 0x50, 0x3C, 0x9F, 0xA8,
+            0x51, 0xA3, 0x40, 0x8F, 0x92, 0x9D, 0x38, 0xF5, 0xBC, 0xB6, 0xDA, 0x21, 0x10, 0xFF, 0xF3, 0xD2,
+            0xCD, 0x0C, 0x13, 0xEC, 0x5F, 0x97, 0x44, 0x17, 0xC4, 0xA7, 0x7E, 0x3D, 0x64, 0x5D, 0x19, 0x73,
+            0x60, 0x81, 0x4F, 0xDC, 0x22, 0x2A, 0x90, 0x88, 0x46, 0xEE, 0xB8, 0x14, 0xDE, 0x5E, 0x0B, 0xDB,
+            0xE0, 0x32, 0x3A, 0x0A, 0x49, 0x06, 0x24, 0x5C, 0xC2, 0xD3, 0xAC, 0x62, 0x91, 0x95, 0xE4, 0x79,
+            0xE7, 0xC8, 0x37, 0x6D, 0x8D, 0xD5, 0x4E, 0xA9, 0x6C, 0x56, 0xF4, 0xEA, 0x65, 0x7A, 0xAE, 0x08,
+            0xBA, 0x78, 0x25, 0x2E, 0x1C, 0xA6, 0xB4, 0xC6, 0xE8, 0xDD, 0x74, 0x1F, 0x4B, 0xBD, 0x8B, 0x8A,
+            0x70, 0x3E, 0xB5, 0x66, 0x48, 0x03, 0xF6, 0x0E, 0x61, 0x35, 0x57, 0xB9, 0x86, 0xC1, 0x1D, 0x9E,
+            0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF,
+            0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
+            )
+Sbox_inv = (
+            0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB,
+            0x7C, 0xE3, 0x39, 0x82, 0x9B, 0x2F, 0xFF, 0x87, 0x34, 0x8E, 0x43, 0x44, 0xC4, 0xDE, 0xE9, 0xCB,
+            0x54, 0x7B, 0x94, 0x32, 0xA6, 0xC2, 0x23, 0x3D, 0xEE, 0x4C, 0x95, 0x0B, 0x42, 0xFA, 0xC3, 0x4E,
+            0x08, 0x2E, 0xA1, 0x66, 0x28, 0xD9, 0x24, 0xB2, 0x76, 0x5B, 0xA2, 0x49, 0x6D, 0x8B, 0xD1, 0x25,
+            0x72, 0xF8, 0xF6, 0x64, 0x86, 0x68, 0x98, 0x16, 0xD4, 0xA4, 0x5C, 0xCC, 0x5D, 0x65, 0xB6, 0x92,
+            0x6C, 0x70, 0x48, 0x50, 0xFD, 0xED, 0xB9, 0xDA, 0x5E, 0x15, 0x46, 0x57, 0xA7, 0x8D, 0x9D, 0x84,
+            0x90, 0xD8, 0xAB, 0x00, 0x8C, 0xBC, 0xD3, 0x0A, 0xF7, 0xE4, 0x58, 0x05, 0xB8, 0xB3, 0x45, 0x06,
+            0xD0, 0x2C, 0x1E, 0x8F, 0xCA, 0x3F, 0x0F, 0x02, 0xC1, 0xAF, 0xBD, 0x03, 0x01, 0x13, 0x8A, 0x6B,
+            0x3A, 0x91, 0x11, 0x41, 0x4F, 0x67, 0xDC, 0xEA, 0x97, 0xF2, 0xCF, 0xCE, 0xF0, 0xB4, 0xE6, 0x73,
+            0x96, 0xAC, 0x74, 0x22, 0xE7, 0xAD, 0x35, 0x85, 0xE2, 0xF9, 0x37, 0xE8, 0x1C, 0x75, 0xDF, 0x6E,
+            0x47, 0xF1, 0x1A, 0x71, 0x1D, 0x29, 0xC5, 0x89, 0x6F, 0xB7, 0x62, 0x0E, 0xAA, 0x18, 0xBE, 0x1B,
+            0xFC, 0x56, 0x3E, 0x4B, 0xC6, 0xD2, 0x79, 0x20, 0x9A, 0xDB, 0xC0, 0xFE, 0x78, 0xCD, 0x5A, 0xF4,
+            0x1F, 0xDD, 0xA8, 0x33, 0x88, 0x07, 0xC7, 0x31, 0xB1, 0x12, 0x10, 0x59, 0x27, 0x80, 0xEC, 0x5F,
+            0x60, 0x51, 0x7F, 0xA9, 0x19, 0xB5, 0x4A, 0x0D, 0x2D, 0xE5, 0x7A, 0x9F, 0x93, 0xC9, 0x9C, 0xEF,
+            0xA0, 0xE0, 0x3B, 0x4D, 0xAE, 0x2A, 0xF5, 0xB0, 0xC8, 0xEB, 0xBB, 0x3C, 0x83, 0x53, 0x99, 0x61,
+            0x17, 0x2B, 0x04, 0x7E, 0xBA, 0x77, 0xD6, 0x26, 0xE1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0C, 0x7D
+            )
+Xtime = (
+            0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
+            32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62,
+            64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94,
+            96, 98,100,102,104,106,108,110,112,114,116,118,120,122,124,126,
+            128,130,132,134,136,138,140,142,144,146,148,150,152,154,156,158,
+            160,162,164,166,168,170,172,174,176,178,180,182,184,186,188,190,
+            192,194,196,198,200,202,204,206,208,210,212,214,216,218,220,222,
+            224,226,228,230,232,234,236,238,240,242,244,246,248,250,252,254,
+            27, 25, 31, 29, 19, 17, 23, 21, 11, 9, 15, 13, 3, 1, 7, 5,
+            59, 57, 63, 61, 51, 49, 55, 53, 43, 41, 47, 45, 35, 33, 39, 37,
+            91, 89, 95, 93, 83, 81, 87, 85, 75, 73, 79, 77, 67, 65, 71, 69,
+            123,121,127,125,115,113,119,117,107,105,111,109, 99, 97,103,101,
+            155,153,159,157,147,145,151,149,139,137,143,141,131,129,135,133,
+            187,185,191,189,179,177,183,181,171,169,175,173,163,161,167,165,
+            219,217,223,221,211,209,215,213,203,201,207,205,195,193,199,197,
+            251,249,255,253,243,241,247,245,235,233,239,237,227,225,231,229
+)
+
+# 수집파형 시각화
+def plt_single(data, color='black', width=None, height=None):
+    output_notebook(INLINE)
+
+    xrange = range(len(data))
+
+    if(width!=None):
+        p = figure(plot_width=width, plot_height=height)
+    else:
+        p = figure()
+
+    p.line(xrange, data, line_color=color)
+    
+    show(p)
+
+# 직접 만들어본 correlation 함수
+# corr() 함수 사용하는 게 더 빠름,,,
+def corr_pearson(hw_line, trace_line):
+    hw_avr = sum(hw_line)/len(hw_line)
+    tr_avr = sum(trace_line)/len(trace_line)
+    hw_sig = 0
+    tr_sig = 0
+    hw_tr_sig = 0
+    
+    for i in range(0, 5000):
+        hw_sig += ((hw_line.iloc[i]-hw_avr) ** 2)
+        tr_sig += ((trace_line.iloc[i]-tr_avr) ** 2)
+        hw_tr_sig += ((hw_line.iloc[i]-hw_avr) * (trace_line.iloc[i]-tr_avr))
+    
+    return hw_tr_sig/((hw_sig ** 0.5) * (tr_sig ** 0.5))
+
+# 헤밍웨이트 구하는 함수 
+def popcount_b(x):
+    m1 = 0x55
+    m2 = 0x33
+    m4 = 0x0f
+    x -= (x >> 1) & m1
+    x = (x & m2) + ((x >> 2) & m2)
+    x = (x + (x >> 4)) & m4
+    return x & 0x7f
+
+# 상관계수 중 가장 높은 값을 찾는 함수 
+def get_corr_max(corr_array):
+    max_corr = 0
+    index = 0
+    for i in range(0, len(corr_array)):
+        if max_corr < corr_array[i]:
+            max_corr = corr_array[i]
+            index = i
+    return max_corr, hex(index)
+
+# CPA 수행절차
+# 1. 추측한 key와 입력평문(출력암호문)을 이용하여 중간값의 해밍웨이트를 계산
+# 2. 측정한 소비전력과 계산결과(헤밍웨이트)간 상관관계 계산
+#     Corr = Correlation(Power, HW(m))
+# 3. 상관도(Corr)가 가장 높게 나오는 추측키가 올바른 키
+
+
+
+fileName = 'ArduinoTrace2021'
+ths = estraces.read_ths_from_ets_file(fileName+'.ets')
+
+# 1. 추측한 key와 입력평문을 이용하여 중간값의 해밍웨이트를 계산
+# 입력평문: D10  
+# 출력암호문: C10  
+# key: k  
+# *: inverse  
+
+# 1) D10 구하기  
+# D10 = SubBytes*( ShiftRows*( k ^ C10 ) )  
+ck = []  # ciphertext ^ key
+sick = [] # Sbox_inv[pk]
+for line in range(0, len(ths.ciphertext)):
+    ck.append([])
+    sick.append([])
+    for byte in range(0, len(ths.ciphertext[line])):
+        ck[line].append([])
+        sick[line].append([])
+        for key in range(0, 256):
+            ck[line][byte].append(ths.ciphertext[line][byte] ^ key)
+            sick[line][byte].append(Sbox_inv[ck[line][byte][key]])
+
+# 2) 헤밍웨이트 구하기  
+hw = []  # HW(sick) 
+for line in range(0, len(ths.ciphertext)):
+    hw.append([])
+    for byte in range(0, len(ths.ciphertext[line])):
+        hw[line].append([])
+        for key in range(0, 256):
+            hw[line][byte].append(popcount_b(sick[line][byte][key]))
+                
+
+# 2. 측정한 소비전력과 계산결과(헤밍웨이트)간 상관관계 계산
+# 소비 전력(\[5,000 wave\]\[15,000 value\])을 헤밍웨이트 값(\[5,000 line\]\[16 byte\]\[256 key\])과 비교 (같은 경향을 갖는 값을 찾음)
+# -> Corr = Correlation(Power, HW(m))
+
+# 1) trace를 DataFrame type으로 변경
+trace = pd.DataFrame()
+for wave in range(0, len(ths.samples)):
+    tmp = pd.DataFrame(ths.samples[wave]).T
+    trace = pd.concat([trace, tmp])
+
+# 2) 헤밍웨이트 DataFrame type으로 변경
+# 3) 각 hw(D10 ^ 0~255 key) 값별로 t0~t15000 대한 상관계수 계산
+# ex) hw(5,000개의 D10 평문에서 모든 line의 0번째 byte ^ key 0)
+#     corr(hw(byte 0 ^ key 0), trace); hw, trace 모두 5000 line
+#     한 trace 당 15000개의 값 -> 15000개의 상관계수 값 중 가장 큰 값 = corr_max[0]
+#     corr_key[0(byte 0)][0(key 0)] = corr_max[0(key 0)]
+corr_key = []
+for byte in range(0, 16):
+    hw_value = pd.DataFrame()
+    for line in range(0, len(hw)):
+        tmp = pd.DataFrame(hw[line][byte]).T
+        hw_value = pd.concat([hw_value, tmp])
+
+    corr_key.append([])
+    for k in range(0, len(hw_value.columns)):
+        corr_max = 0
+        for t in range(0, len(trace.columns)):
+            df = pd.concat([hw_value[k], trace[t]], axis=1)
+            corr = df.corr(method = 'pearson')
+            if corr_max < corr.iloc[0, 1]:
+                corr_max = corr.iloc[0, 1]
+        corr_key[byte].append(corr_max)
+
+
+# 4) 상관계수가 가장 높은 값을 찾아 마지막 round key 구하기
+key = []
+max_corr = []
+for byte in range(0, len(corr_key)):
+    mx, ky = get_corr_max(corr_key[byte])
+    max_corr.append(mx)
+    key.append(ky)
+    
+    # print one byte of final round key
+    #print("key: ", key[byte], "max_corr_value: ", max_corr[byte])
+    #plt_single(np.array(corr_key[byte]))
+    
+
+for i in range(0, len(key)):
+    key[i] = int(key[i], 16)
+    
+# 3. 키 스케줄 역 연산을 통한 마스터키 복원 
+# 마스터 키: mk == r1 (16 bytes)  
+# 라운드 키: rks[11]  
+#
+# 0) RCon 값 구하기
+#   arduino_milenage_aes의 Xtime을 사용한다고 가정  
+RCons = []
+
+RCons.append(1)
+
+for i in range(1, 10):
+    RCons.append(Xtime[RCons[i-1]])
+  
+# 1) XOR 특성으로 r11에서 r10를 역으로 구하기  
+#   r[i]에서 r[i-1]을 구함
+# 2) r11에서 r10를, r10에서 r9을, ... r2 r1까지 역으로 구하기
+rks = []
+
+rks.append(key)
+
+for key_index in range(0, 10):
+    temp_key = [0 for i in range(16)]
+    for i in range(0, 4):
+        temp_key[i*1+4] = rks[key_index][i*1+0] ^ rks[key_index][i*1+4]
+        temp_key[i*1+8] = rks[key_index][i*1+4] ^ rks[key_index][i*1+8]
+        temp_key[i*1+12] = rks[key_index][i*1+8] ^ rks[key_index][i*1+12]
+    
+    temp_key[0] = rks[key_index][0] ^ Sbox[temp_key[13]] ^ RCons[10 - key_index - 1]
+    temp_key[1] = rks[key_index][1] ^ Sbox[temp_key[14]] 
+    temp_key[2] = rks[key_index][2] ^ Sbox[temp_key[15]] 
+    temp_key[3] = rks[key_index][3] ^ Sbox[temp_key[12]] 
+    
+    rks.append(temp_key)
+
+# 3) master key == r1
+mk = rks[len(rks)-1]
+
+
+# RESULT
+# r11부터 r1(=master key)까지 순서대로 출력
+for i in range(0, len(rks)):
+    print(rks[i])
+
+
+
+
+
+
